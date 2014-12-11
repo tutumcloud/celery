@@ -85,7 +85,7 @@ UNAVAIL = frozenset([errno.EAGAIN, errno.EINTR])
 WORKER_UP = 15
 
 #: A process must have started before this timeout (in secs.) expires.
-PROC_ALIVE_TIMEOUT = 4.0
+PROC_ALIVE_TIMEOUT = 20.0
 
 SCHED_STRATEGY_PREFETCH = 1
 SCHED_STRATEGY_FAIR = 4
