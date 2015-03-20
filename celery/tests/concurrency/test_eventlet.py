@@ -8,6 +8,7 @@ from celery.concurrency.eventlet import (
     Schedule,
     Timer,
     TaskPool,
+    apply_timeout,
 )
 
 from celery.tests.case import (
@@ -116,3 +117,37 @@ class test_Timer(EventletCase):
         x.schedule.GreenletExit = KeyError
         tref.cancel.side_effect = KeyError()
         x.cancel(tref)
+
+
+class test_apply_timeout(AppCase):
+
+    def test_apply_timeout(self):
+
+            class Timeout(Exception):
+                value = None
+
+                def __init__(self, value):
+                    self.__class__.value = value
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *exc_info):
+                    pass
+            timeout_callback = Mock(name='timeout_callback')
+            apply_target = Mock(name='apply_target')
+            apply_timeout(
+                Mock(), timeout=10, callback=Mock(name='callback'),
+                timeout_callback=timeout_callback,
+                apply_target=apply_target, Timeout=Timeout,
+            )
+            self.assertEqual(Timeout.value, 10)
+            self.assertTrue(apply_target.called)
+
+            apply_target.side_effect = Timeout(10)
+            apply_timeout(
+                Mock(), timeout=10, callback=Mock(),
+                timeout_callback=timeout_callback,
+                apply_target=apply_target, Timeout=Timeout,
+            )
+            timeout_callback.assert_called_with(False, 10)

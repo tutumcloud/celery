@@ -12,6 +12,12 @@ import sys
 
 from time import time
 
+try:
+    from eventlet.timeout import Timeout
+except ImportError:  # pragma: no cover
+    Timeout = None  # noqa
+
+
 __all__ = ['TaskPool']
 
 W_RACE = """\
@@ -39,6 +45,19 @@ def apply_target(target, args=(), kwargs={}, callback=None,
                  accept_callback=None, getpid=None):
     return base.apply_target(target, args, kwargs, callback, accept_callback,
                              pid=getpid())
+
+
+def apply_timeout(target, args=(), kwargs={}, callback=None,
+                  accept_callback=None, pid=None, timeout=None,
+                  timeout_callback=None, Timeout=Timeout,
+                  apply_target=apply_target, **rest):
+    try:
+        with Timeout(timeout):
+            return apply_target(target, args, kwargs, callback,
+                                accept_callback, pid,
+                                propagate=(Timeout, ), **rest)
+    except Timeout:
+        return timeout_callback(False, timeout)
 
 
 class Schedule(timer2.Schedule):
@@ -119,6 +138,7 @@ class TaskPool(base.BasePool):
         self.getcurrent = greenthread.getcurrent
         self.getpid = lambda: id(greenthread.getcurrent())
         self.spawn_n = greenthread.spawn_n
+        self.timeout = kwargs.get('timeout')
 
         super(TaskPool, self).__init__(*args, **kwargs)
 
@@ -135,13 +155,17 @@ class TaskPool(base.BasePool):
         signals.eventlet_pool_postshutdown.send(sender=self)
 
     def on_apply(self, target, args=None, kwargs=None, callback=None,
-                 accept_callback=None, **_):
+                 accept_callback=None, timeout=None,
+                 timeout_callback=None, **_):
         self._quick_apply_sig(
             sender=self, target=target, args=args, kwargs=kwargs,
         )
-        self._quick_put(apply_target, target, args, kwargs,
-                        callback, accept_callback,
-                        self.getpid)
+        timeout = self.timeout if timeout is None else timeout
+        self._quick_put(apply_timeout if timeout else apply_target,
+                        target, args, kwargs, callback, accept_callback,
+                        self.getpid,
+                        timeout=timeout,
+                        timeout_callback=timeout_callback)
 
     def grow(self, n=1):
         limit = self.limit + n
