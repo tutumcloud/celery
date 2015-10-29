@@ -42,9 +42,9 @@ from . import base  # noqa
 
 
 def apply_target(target, args=(), kwargs={}, callback=None,
-                 accept_callback=None, getpid=None):
+                 accept_callback=None, getpid=None, propagate=()):
     return base.apply_target(target, args, kwargs, callback, accept_callback,
-                             pid=getpid())
+                             pid=getpid(), propagate=propagate)
 
 
 def apply_timeout(target, args=(), kwargs={}, callback=None,
